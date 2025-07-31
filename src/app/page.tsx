@@ -212,6 +212,34 @@ export default function Dashboard() {
     }
   }
 
+  const updateTransaction = async (transactionId: number, updatedData: Partial<Transaction>) => {
+    try {
+      const { error } = await supabase
+        .from('transactions')
+        .update(updatedData)
+        .eq('id', transactionId)
+
+      if (error) {
+        console.error('Error updating transaction:', error)
+        alert('Error al actualizar transacción. Verifica la conexión a la base de datos.')
+        return
+      }
+
+      // Actualizar transacción en la lista local
+      setTransactions(prev => prev.map(t => 
+        t.id === transactionId ? { ...t, ...updatedData } : t
+      ))
+
+      // Recalcular deuda del cliente
+      await loadData()
+
+      alert('✅ Transacción actualizada exitosamente')
+    } catch (error) {
+      console.error('Error updating transaction:', error)
+      alert('Error al actualizar transacción. Verifica la conexión a la base de datos.')
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -271,6 +299,7 @@ export default function Dashboard() {
           transactions={transactions.filter(t => t.client_id === currentClient.id)}
           onBack={() => setCurrentScreen('clientsList')}
           onAddTransaction={addTransaction}
+          onUpdateTransaction={updateTransaction}
           onDeleteClient={deleteClient}
           formatCurrency={formatCurrency}
           formatDate={formatDate}
@@ -640,6 +669,7 @@ function ClientDetailView({
   transactions, 
   onBack, 
   onAddTransaction, 
+  onUpdateTransaction, 
   onDeleteClient, 
   formatCurrency, 
   formatDate 
@@ -648,6 +678,7 @@ function ClientDetailView({
   transactions: Transaction[]
   onBack: () => void
   onAddTransaction: (transactionData: Omit<Transaction, 'id' | 'created_at'>) => Promise<void>
+  onUpdateTransaction: (transactionId: number, updatedData: Partial<Transaction>) => Promise<void>
   onDeleteClient: (clientId: number) => Promise<void>
   formatCurrency: (amount: number) => string
   formatDate: (dateString: string) => string
@@ -655,6 +686,8 @@ function ClientDetailView({
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [showDebtModal, setShowDebtModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
   const [transactionForm, setTransactionForm] = useState({
     amount: 0,
     date: new Date().toISOString().split('T')[0],
@@ -747,20 +780,37 @@ function ClientDetailView({
                     }`}
                   >
                     <div className="flex justify-between items-center">
-                      <div>
+                      <div className="flex-1">
                         <p className="text-sm text-gray-600">{formatDate(transaction.date)}</p>
                         <p className="font-semibold">
                           {transaction.type === 'payment' ? '💳' : '💰'} {transaction.description}
                         </p>
                       </div>
-                      <div className={`font-bold ${
-                        transaction.type === 'payment' ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {transaction.type === 'payment' ? '-' : '+'}{formatCurrency(transaction.amount)}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                      <div className="flex items-center gap-2">
+                        <div className={`font-bold ${
+                          transaction.type === 'payment' ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {transaction.type === 'payment' ? '-' : '+'}{formatCurrency(transaction.amount)}
+                        </div>
+                                                 <button
+                           onClick={() => {
+                             setEditingTransaction(transaction)
+                             setTransactionForm({
+                               amount: transaction.amount,
+                               date: transaction.date,
+                               description: transaction.description
+                             })
+                             setShowEditModal(true)
+                           }}
+                           className="p-1 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded"
+                           title="Editar transacción"
+                         >
+                           ✏️
+                         </button>
+                       </div>
+                     </div>
+                   </div>
+                 ))}
             </div>
           )}
         </div>
@@ -918,6 +968,73 @@ function ClientDetailView({
                   className="flex-1 bg-red-600 text-white p-3 rounded-lg hover:bg-red-700"
                 >
                   🗑️ Borrar Definitivamente
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Editar Transacción */}
+      {showEditModal && editingTransaction && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+            <h3 className="text-xl font-bold mb-4">✏️ Editar Transacción</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold mb-2">Monto</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="100"
+                  required
+                  value={transactionForm.amount}
+                  onChange={(e) => setTransactionForm(prev => ({ ...prev, amount: Number(e.target.value) }))}
+                  className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-2">Fecha</label>
+                <input
+                  type="date"
+                  required
+                  value={transactionForm.date}
+                  onChange={(e) => setTransactionForm(prev => ({ ...prev, date: e.target.value }))}
+                  className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-2">Descripción</label>
+                <input
+                  type="text"
+                  value={transactionForm.description}
+                  onChange={(e) => setTransactionForm(prev => ({ ...prev, description: e.target.value }))}
+                  className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowEditModal(false)
+                    setEditingTransaction(null)
+                  }}
+                  className="flex-1 bg-gray-500 text-white p-3 rounded-lg hover:bg-gray-600"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => {
+                    onUpdateTransaction(editingTransaction.id, {
+                      amount: transactionForm.amount,
+                      date: transactionForm.date,
+                      description: transactionForm.description
+                    })
+                    setShowEditModal(false)
+                    setEditingTransaction(null)
+                  }}
+                  className="flex-1 bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700"
+                >
+                  Guardar Cambios
                 </button>
               </div>
             </div>
