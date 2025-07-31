@@ -11,7 +11,8 @@ import {
   CreditCard,
   Wallet,
   Calendar,
-  X
+  X,
+  Trash2
 } from 'lucide-react'
 
 export default function Dashboard() {
@@ -182,6 +183,35 @@ export default function Dashboard() {
     }
   }
 
+  const deleteClient = async (clientId: number) => {
+    try {
+      const { error } = await supabase
+        .from('clients')
+        .delete()
+        .eq('id', clientId)
+
+      if (error) {
+        console.error('Error deleting client:', error)
+        alert('Error al eliminar cliente. Verifica la conexión a la base de datos.')
+        return
+      }
+
+      // Remover cliente de la lista local
+      setClients(prev => prev.filter(c => c.id !== clientId))
+      
+      // Si el cliente actual es el que se está borrando, volver a la lista
+      if (currentClient && currentClient.id === clientId) {
+        setCurrentScreen('clientsList')
+        setCurrentClient(null)
+      }
+
+      alert('✅ Cliente eliminado exitosamente')
+    } catch (error) {
+      console.error('Error deleting client:', error)
+      alert('Error al eliminar cliente. Verifica la conexión a la base de datos.')
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -241,6 +271,7 @@ export default function Dashboard() {
           transactions={transactions.filter(t => t.client_id === currentClient.id)}
           onBack={() => setCurrentScreen('clientsList')}
           onAddTransaction={addTransaction}
+          onDeleteClient={deleteClient}
           formatCurrency={formatCurrency}
           formatDate={formatDate}
         />
@@ -609,6 +640,7 @@ function ClientDetailView({
   transactions, 
   onBack, 
   onAddTransaction, 
+  onDeleteClient, 
   formatCurrency, 
   formatDate 
 }: {
@@ -616,11 +648,13 @@ function ClientDetailView({
   transactions: Transaction[]
   onBack: () => void
   onAddTransaction: (transactionData: Omit<Transaction, 'id' | 'created_at'>) => Promise<void>
+  onDeleteClient: (clientId: number) => Promise<void>
   formatCurrency: (amount: number) => string
   formatDate: (dateString: string) => string
 }) {
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [showDebtModal, setShowDebtModal] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [transactionForm, setTransactionForm] = useState({
     amount: 0,
     date: new Date().toISOString().split('T')[0],
@@ -730,6 +764,17 @@ function ClientDetailView({
             </div>
           )}
         </div>
+
+        {/* Botón de Borrar Cliente */}
+        <div className="mt-8 pt-6 border-t-2 border-gray-200">
+          <button
+            onClick={() => setShowDeleteModal(true)}
+            className="w-full bg-red-600 text-white p-4 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-red-700 transition-all"
+          >
+            <Trash2 size={20} />
+            🗑️ Borrar Cliente
+          </button>
+        </div>
       </div>
 
       {/* Modal de Abono */}
@@ -838,6 +883,41 @@ function ClientDetailView({
                   className="flex-1 bg-red-600 text-white p-3 rounded-lg hover:bg-red-700"
                 >
                   Guardar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Confirmación para Borrar Cliente */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+            <h3 className="text-xl font-bold mb-4 text-red-600">🗑️ Borrar Cliente</h3>
+            <div className="space-y-4">
+              <div className="bg-red-50 p-4 rounded-lg border-2 border-red-200">
+                <p className="text-red-800 font-semibold mb-2">⚠️ ¿Estás seguro?</p>
+                <p className="text-red-700 text-sm">
+                  Esta acción eliminará permanentemente al cliente <strong>{client.name}</strong> 
+                  y todas sus transacciones. Esta acción no se puede deshacer.
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDeleteModal(false)}
+                  className="flex-1 bg-gray-500 text-white p-3 rounded-lg hover:bg-gray-600"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => {
+                    onDeleteClient(client.id)
+                    setShowDeleteModal(false)
+                  }}
+                  className="flex-1 bg-red-600 text-white p-3 rounded-lg hover:bg-red-700"
+                >
+                  🗑️ Borrar Definitivamente
                 </button>
               </div>
             </div>
