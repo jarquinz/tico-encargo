@@ -739,6 +739,22 @@ function ClientDetailView({
           </div>
         </div>
 
+        {/* Botón de WhatsApp */}
+        {client.phone && (
+          <div className="mb-6">
+            <button
+              onClick={() => {
+                const message = `Hola ${client.name}, tu saldo actual es: ${formatCurrency(client.current_debt)}`
+                const whatsappUrl = `https://wa.me/${client.phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`
+                window.open(whatsappUrl, '_blank')
+              }}
+              className="w-full bg-green-500 text-white p-4 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-green-600 transition-all"
+            >
+              📱 Enviar Saldo por WhatsApp
+            </button>
+          </div>
+        )}
+
         {client.notes && (
           <div className="mb-6 p-4 bg-blue-50 rounded-lg">
             <p className="text-sm"><strong>📝 Notas:</strong> {client.notes}</p>
