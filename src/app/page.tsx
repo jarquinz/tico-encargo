@@ -1,8 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
-import type { Client, Transaction } from '@/lib/supabase'
+import { supabase, Client, Transaction } from '@/lib/supabase'
 import { 
   Plus, 
   Users, 
@@ -15,7 +14,90 @@ import {
   Trash2
 } from 'lucide-react'
 
+// Componente de Login
+function LoginView({ onLogin }: { onLogin: () => void }) {
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    // Credenciales simples (puedes cambiarlas)
+    const validUsername = 'admin'
+    const validPassword = 'tico123'
+    
+    if (username === validUsername && password === validPassword) {
+      localStorage.setItem('tico-encargo-auth', 'true')
+      onLogin()
+    } else {
+      setError('Usuario o contraseña incorrectos')
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl p-8 w-full max-w-md shadow-lg">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">Tico Encargo</h1>
+          <p className="text-gray-600">Sistema de Gestión de Clientes</p>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <label className="block text-sm font-semibold mb-2 text-gray-700">
+              Usuario
+            </label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none"
+              placeholder="Ingresa tu usuario"
+              required
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-semibold mb-2 text-gray-700">
+              Contraseña
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none"
+              placeholder="Ingresa tu contraseña"
+              required
+            />
+          </div>
+          
+          {error && (
+            <div className="bg-red-50 border-2 border-red-200 rounded-lg p-3">
+              <p className="text-red-700 text-sm">{error}</p>
+            </div>
+          )}
+          
+          <button
+            type="submit"
+            className="w-full bg-blue-600 text-white p-4 rounded-xl font-semibold hover:bg-blue-700 transition-all"
+          >
+            🔐 Iniciar Sesión
+          </button>
+        </form>
+        
+        <div className="mt-6 text-center">
+          <p className="text-sm text-gray-500">
+            Usuario: <strong>admin</strong> | Contraseña: <strong>tico123</strong>
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Dashboard() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [clients, setClients] = useState<Client[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [currentScreen, setCurrentScreen] = useState<'dashboard' | 'newClient' | 'clientsList' | 'clientDetail'>('dashboard')
@@ -28,6 +110,21 @@ export default function Dashboard() {
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [loading, setLoading] = useState(true)
+
+  // Verificar autenticación al cargar
+  useEffect(() => {
+    const auth = localStorage.getItem('tico-encargo-auth')
+    if (auth === 'true') {
+      setIsAuthenticated(true)
+    }
+  }, [])
+
+  // Cargar datos solo si está autenticado
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadData()
+    }
+  }, [isAuthenticated])
 
   // Cargar datos iniciales
   useEffect(() => {
@@ -115,6 +212,15 @@ export default function Dashboard() {
       month: 'short',
       day: 'numeric'
     })
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem('tico-encargo-auth')
+    setIsAuthenticated(false)
+    setCurrentScreen('dashboard')
+    setClients([])
+    setTransactions([])
+    setCurrentClient(null)
   }
 
   // Agregar nuevo cliente
@@ -240,6 +346,11 @@ export default function Dashboard() {
     }
   }
 
+  // Mostrar login si no está autenticado
+  if (!isAuthenticated) {
+    return <LoginView onLogin={() => setIsAuthenticated(true)} />
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -252,7 +363,21 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-4">
+    <div className="min-h-screen bg-gray-50">
+      {/* Header con botón de logout */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
+          <h1 className="text-xl font-bold text-gray-800">Tico Encargo</h1>
+          <button
+            onClick={handleLogout}
+            className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all"
+          >
+            🚪 Cerrar Sesión
+          </button>
+        </div>
+      </div>
+
+      <div className="max-w-4xl mx-auto p-4">
       {currentScreen === 'dashboard' && (
         <DashboardView 
           totalDebt={totalDebt}
@@ -305,6 +430,7 @@ export default function Dashboard() {
           formatDate={formatDate}
         />
       )}
+      </div>
     </div>
   )
 }
