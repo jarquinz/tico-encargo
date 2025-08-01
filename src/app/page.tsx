@@ -11,13 +11,16 @@ import {
   Wallet,
   Calendar,
   X,
-  Trash2
+  Trash2,
+  Eye,
+  EyeOff
 } from 'lucide-react'
 
 // Componente de Login
 function LoginView({ onLogin }: { onLogin: () => void }) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -62,14 +65,23 @@ function LoginView({ onLogin }: { onLogin: () => void }) {
             <label className="block text-sm font-semibold mb-2 text-gray-700">
               Contraseña
             </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none"
-              placeholder="Ingresa tu contraseña"
-              required
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full p-3 pr-12 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none"
+                placeholder="Ingresa tu contraseña"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
           </div>
           
           {error && (
@@ -86,11 +98,7 @@ function LoginView({ onLogin }: { onLogin: () => void }) {
           </button>
         </form>
         
-        <div className="mt-6 text-center">
-          <p className="text-sm text-gray-500">
-            Usuario: <strong>admin</strong> | Contraseña: <strong>tico123</strong>
-          </p>
-        </div>
+
       </div>
     </div>
   )
